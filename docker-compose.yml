@@ -1,0 +1,160 @@
+version: '3'
+volumes:
+  app1:
+  app2:
+  app3:
+  maria:
+  django: 
+  mosquitto_data:
+  mosquitto_log:
+
+services:
+    # Sensor 1
+
+  webserver:
+    build:
+      context: ./device_manager
+      dockerfile: ./Dockerfile
+    depends_on:
+      - db
+      - mqtt
+      - redis
+    container_name: django-web-server
+    command: >
+            sh -c "sleep 5 &&./start_servers.sh"
+    ports:
+      - "8000:8000"
+    volumes:
+      - django:/app
+    networks:
+      - mynet
+    environment:
+      - DJANGO_DB_HOST=db
+      - DJANGO_DB_NAME=sqldb
+      - DJANGO_DB_USER=user
+      - DJANGO_DB_PASSWORD=password
+      - MQTT_BROKER_HOST=mqtt
+      - MQTT_BROKER_PORT=1883
+      - MQTT_CENTRAL_TOPIC=connect
+  
+ # MQTT Broker (e.g., Eclipse Mosquitto)
+  mqtt:
+    image: eclipse-mosquitto:latest
+    container_name: mqtt-broker
+    ports:
+      - 1883:1883
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    networks:
+      - mynet  # Database (MySQL)
+  
+  db:
+    image: mariadb:latest
+    container_name: mysql-db
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: sqldb
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    volumes:
+      - maria:/app
+    ports:
+      - "3306:3306"
+    networks:
+      - mynet
+
+  # Redis
+  redis:
+    image: redis:latest
+    container_name: redis-cache
+    ports:
+      - "6379:6379"
+    networks:
+      - mynet
+
+  #Angular App
+  app1:
+    build:
+      context: ./app1
+      dockerfile: Dockerfile
+    container_name: angular-app1
+    ports:
+      - "4200:80"
+    volumes:
+      - app1:/app
+    networks:
+      - mynet
+
+    #Angular App
+  app2:
+    build:
+      context: ./app2
+      dockerfile: Dockerfile
+    container_name: angular-app2
+    ports:
+      - "4201:80"
+    volumes:
+      - app2:/app
+    networks:
+      - mynet
+  app3:
+    build:
+      context: ./app3
+      dockerfile: Dockerfile
+    container_name: angular-app3
+    ports:
+      - "4202:80"
+    volumes:
+      - app3:/app
+    networks:
+      - mynet
+  
+  sensor1:
+    build:
+      context: ./sensor1
+      dockerfile: Dockerfile
+    container_name: sensor1
+    command: >
+            sh -c "sleep 30 && python sensor.py"
+    environment:
+      BROKER: mqtt  # Example environment variable
+    depends_on:
+      - mqtt
+    networks:
+      - mynet
+
+  # Sensor 2
+  sensor2:
+    build:
+      context: ./sensor2
+      dockerfile: Dockerfile
+    container_name: sensor2
+    command: >
+            sh -c "sleep 30 && python sensor.py"
+    environment:
+      BROKER: mqtt  # Example environment variable
+    depends_on:
+      - mqtt
+    networks:
+      - mynet
+
+  # Sensor 3
+  sensor3:
+    build:
+      context: ./sensor3
+      dockerfile: Dockerfile
+    container_name: sensor3
+    command: >
+            sh -c "sleep 30 && python sensor.py"
+    environment:
+      BROKER: mqtt  # Example environment variable
+    depends_on:
+      - mqtt
+    networks:
+      - mynet
+networks:
+  mynet:
+
+
